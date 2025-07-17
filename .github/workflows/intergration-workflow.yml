@@ -1,0 +1,100 @@
+---
+name: Continuos Integration for Wanderlust
+on: 
+    workflow_dispatch:
+      inputs:
+        FRONTEND_DOCKER_TAG:
+            description: 'Frontend TAG value for latest push of docker image'
+            required: true
+            default: ''
+        BACKENDEND_DOCKER_TAG:
+            description: 'Backend TAG value for latest push of docker image'
+            required: true
+            default: ''
+
+jobs: 
+  CI:
+    name: Continuos Integration 
+    runs-on: 
+        labels: [self-hosted, Linux, X64, dev]
+    env:
+      SONARQUBE_API: http://18.222.208.118:9000         
+      PROJECT_NAME: wanderlust             
+      PROJECT_KEY: wanderlust          
+    steps:
+      - name: Git Code Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          clean: true
+      - name: Trivy - fs scan
+        run: 'trivy fs .'      
+      - name: Run OWASP Dependency-Check via Docker
+        run: |
+            docker run --rm \
+            -v "$(pwd):/src" \
+            owasp/dependency-check \
+            --scan /src \
+            --format ALL \
+            --out /src/dependency-check-report
+
+      - name: Upload OWASP Dependency-Check Reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-check-report
+          path: dependency-check-report
+      - name: Cleanup OWASP Dependency-Check Reports
+        run: rm -rf dependency-check-report
+
+      - name: Run SonarQube Scanner via Docker
+        env:
+            SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+            PUBLIC_IP=$(curl -s ifconfig.me)
+            SONAR_HOST="http://${PUBLIC_IP}:9000"
+
+            echo "Using SonarQube at: $SONAR_HOST"
+
+            docker run --rm \
+            -e SONAR_HOST_URL="$SONAR_HOST" \
+            -e SONAR_TOKEN="$SONAR_TOKEN" \
+            -v "$PWD:/usr/src" \
+            sonarsource/sonar-scanner-cli \
+            -Dsonar.projectKey=wanderlust \
+            -Dsonar.projectName="Wanderlust Application" \
+            -Dsonar.sources=. \
+            -Dsonar.qualitygate.wait=true \
+            -X
+
+      - name: Login to docker hub
+        run: echo "${{ secrets.DOCKERHUB_CRED }}" | docker login -u "kumarn2k" --password-stdin
+
+      - name: Run backend and frontend setup in parallel
+        working-directory: Automations
+        run: |
+          bash updatebackendnew.sh &    # Run in background
+          bash updatefrontendnew.sh &   # Run in background
+          wait                          # Wait for both to finish
+
+      - name: Docker build image for backend
+        working-directory: backend
+        run: |
+            docker build -t kumarn2k/wanderlust-backend-beta:${{ inputs.BACKENDEND_DOCKER_TAG }} .
+
+      - name: Docker build image for frontend
+        working-directory: frontend
+        run: |
+            docker build -t kumarn2k/wanderlust-frontend-beta:${{ inputs.FRONTEND_DOCKER_TAG }} .
+
+      - name: Push Backend Docker Image
+        run: |
+            docker push kumarn2k/wanderlust-backend-beta:${{ inputs.BACKEND_DOCKER_TAG }}
+
+      - name: Push Frontend Docker Image
+        run: |
+            docker push kumarn2k/wanderlust-frontend-beta:${{ inputs.FRONTEND_DOCKER_TAG }}
+
+
+
+
+
