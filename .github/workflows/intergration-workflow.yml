@@ -7,7 +7,7 @@ on:
             description: 'Frontend TAG value for latest push of docker image'
             required: true
             default: ''
-        BACKENDEND_DOCKER_TAG:
+        BACKEND_DOCKER_TAG:
             description: 'Backend TAG value for latest push of docker image'
             required: true
             default: ''
@@ -91,7 +91,7 @@ jobs:
       - name: Docker build image for backend
         working-directory: backend
         run: |
-            docker build -t kumarn2k/wanderlust-backend-beta:${{ inputs.BACKENDEND_DOCKER_TAG }} .
+            docker build -t kumarn2k/wanderlust-backend-beta:${{ inputs.BACKEND_DOCKER_TAG }} .
 
       - name: Docker build image for frontend
         working-directory: frontend
