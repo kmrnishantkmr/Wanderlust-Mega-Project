@@ -27,16 +27,28 @@ jobs:
         with:
           ref: main
           clean: true
+
       - name: Trivy - fs scan
-        run: 'trivy fs .'      
+        run: |
+            trivy fs . --format json --output trivy-fs-report.json
+
+      - name: Upload Trivy FS Scan Report
+        uses: actions/upload-artifact@v4
+        with:
+            name: trivy-fs-report
+            path: trivy-fs-report.json
+
       - name: Run OWASP Dependency-Check via Docker
         run: |
+            mkdir -p $HOME/odc_data  # Persistent cache directory
             docker run --rm \
             -v "$(pwd):/src" \
+            -v "$HOME/odc_data:/usr/share/dependency-check/data" \
             owasp/dependency-check \
             --scan /src \
             --format ALL \
-            --out /src/dependency-check-report
+            --out /src/dependency-check-report \
+            --disableNodeAudit
 
       - name: Upload OWASP Dependency-Check Reports
         uses: actions/upload-artifact@v4
