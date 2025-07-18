@@ -106,6 +106,13 @@ jobs:
         run: |
             docker push kumarn2k/wanderlust-frontend-beta:${{ inputs.FRONTEND_DOCKER_TAG }}
 
+      - name: Upload XML artifacts
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xml-artifacts
+          path: '*.xml'
+
 
 
 
